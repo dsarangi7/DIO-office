@@ -1,0 +1,118 @@
+{
+  "updatedAt": "2026-10-12T17:24:42+08:00",
+  "agents": [
+    {
+      "id": "god",
+      "name": "God",
+      "role": "Orchestrator",
+      "status": "working",
+      "task": "Orchestration",
+      "room": "god-office"
+    },
+    {
+      "id": "shiva",
+      "name": "Shiva",
+      "role": "Research lead",
+      "status": "idle",
+      "task": "Idle · café",
+      "room": "desk"
+    },
+    {
+      "id": "alberto",
+      "name": "Alberto",
+      "role": "SEO & growth",
+      "status": "idle",
+      "task": "Idle · café",
+      "room": "desk"
+    },
+    {
+      "id": "mike",
+      "name": "Mike",
+      "role": "LinkedIn content",
+      "status": "idle",
+      "task": "Idle · café",
+      "room": "desk"
+    },
+    {
+      "id": "stacy",
+      "name": "Stacy",
+      "role": "X/Twitter & Reddit",
+      "status": "idle",
+      "task": "Idle · café",
+      "room": "desk"
+    },
+    {
+      "id": "juan",
+      "name": "Juan",
+      "role": "Docs & knowledge",
+      "status": "blocked",
+      "task": "Session 1 PPT done; sample-request draft · Waitin…",
+      "room": "desk"
+    },
+    {
+      "id": "chan",
+      "name": "Chan",
+      "role": "Builder / code",
+      "status": "working",
+      "task": "Echo flash-card visual",
+      "room": "desk"
+    },
+    {
+      "id": "villain",
+      "name": "Villain",
+      "role": "Adversarial critic",
+      "status": "idle",
+      "task": "Idle · café",
+      "room": "desk"
+    },
+    {
+      "id": "hero",
+      "name": "Hero",
+      "role": "Debugger / fixer",
+      "status": "working",
+      "task": "Echo flash-card QA",
+      "room": "desk"
+    },
+    {
+      "id": "dwight",
+      "name": "Dwight",
+      "role": "Quality gate",
+      "status": "idle",
+      "task": "Idle · café",
+      "room": "desk"
+    }
+  ],
+  "handoffs": [],
+  "feed": [
+    {
+      "at": "2026-10-12T17:24:42+08:00",
+      "agent": null,
+      "text": "Kai: Echo flash-card swipe UI (interaction) (working)"
+    },
+    {
+      "at": "2026-10-12T17:24:42+08:00",
+      "agent": "chan",
+      "text": "Chan · In flight"
+    },
+    {
+      "at": "2026-10-12T17:24:42+08:00",
+      "agent": "hero",
+      "text": "Hero · In flight"
+    },
+    {
+      "at": "2026-10-12T17:24:42+08:00",
+      "agent": null,
+      "text": "Nova: WeCom APK install kit — ready (idle)"
+    },
+    {
+      "at": "2026-10-12T17:24:42+08:00",
+      "agent": "juan",
+      "text": "Juan · Waiting · Waiting Dibya send of sample ask"
+    },
+    {
+      "at": "2026-10-12T17:24:42+08:00",
+      "agent": "god",
+      "text": "God · Active"
+    }
+  ]
+}
