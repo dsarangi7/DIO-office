@@ -192,7 +192,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 304px;min-height:0}
 
 <script type="application/json" id="dio-status">
 {
-  "updatedAt": "2026-10-12T17:24:42+08:00",
+  "updatedAt": "2026-10-13T15:07:39+08:00",
   "agents": [
     {
       "id": "god",
@@ -243,11 +243,27 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 304px;min-height:0}
       "room": "desk"
     },
     {
+      "id": "kai",
+      "name": "Kai",
+      "role": "Full-stack & platform",
+      "status": "working",
+      "task": "Echo ZH · pinyin-primary (bc-b8d01a6a)",
+      "room": "desk"
+    },
+    {
       "id": "chan",
       "name": "Chan",
       "role": "Builder / code",
       "status": "working",
-      "task": "Echo flash-card visual",
+      "task": "Echo UI · Safari-note off + streak ≥2",
+      "room": "desk"
+    },
+    {
+      "id": "nova",
+      "name": "Nova",
+      "role": "Product & distribution",
+      "status": "idle",
+      "task": "Echo iOS · PWA home-screen (no App Store build)",
       "room": "desk"
     },
     {
@@ -262,8 +278,8 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 304px;min-height:0}
       "id": "hero",
       "name": "Hero",
       "role": "Debugger / fixer",
-      "status": "working",
-      "task": "Echo flash-card QA",
+      "status": "idle",
+      "task": "Idle · café",
       "room": "desk"
     },
     {
@@ -278,32 +294,27 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 304px;min-height:0}
   "handoffs": [],
   "feed": [
     {
-      "at": "2026-10-12T17:24:42+08:00",
-      "agent": null,
-      "text": "Kai: Echo flash-card swipe UI (interaction) (working)"
+      "at": "2026-10-13T15:07:39+08:00",
+      "agent": "kai",
+      "text": "Kai · Echo ZH pinyin-primary in flight (bc-b8d01a6a)"
     },
     {
-      "at": "2026-10-12T17:24:42+08:00",
+      "at": "2026-10-13T15:07:39+08:00",
       "agent": "chan",
-      "text": "Chan · In flight"
+      "text": "Chan · Safari/Chrome note removal + streak gate (≥2 sentences) in flight"
     },
     {
-      "at": "2026-10-12T17:24:42+08:00",
-      "agent": "hero",
-      "text": "Hero · In flight"
+      "at": "2026-10-13T15:07:39+08:00",
+      "agent": "nova",
+      "text": "Nova · Echo iOS = PWA Add-to-Home-Screen (no native App Store build) · ready"
     },
     {
-      "at": "2026-10-12T17:24:42+08:00",
-      "agent": null,
-      "text": "Nova: WeCom APK install kit — ready (idle)"
-    },
-    {
-      "at": "2026-10-12T17:24:42+08:00",
+      "at": "2026-10-13T15:07:39+08:00",
       "agent": "juan",
       "text": "Juan · Waiting · Waiting Dibya send of sample ask"
     },
     {
-      "at": "2026-10-12T17:24:42+08:00",
+      "at": "2026-10-13T15:07:39+08:00",
       "agent": "god",
       "text": "God · Active"
     }
@@ -328,11 +339,13 @@ const DEFS = {
   stacy:  {name:"Stacy",  role:"X/Twitter & Reddit", cx:120, hy:124,hair:"long",  skin:"#f4d3b5", hc:"#8c3b22", shirt:"#d0784b", shade:"#ad5c34", collar:"#f6ead6", props:"phone2", stage:"spec"},
   juan:   {name:"Juan",   role:"Docs & knowledge",   cx:200, hy:124,hair:"short", glasses:"#2b211a", skin:"#d9a47a", hc:"#3b2a20", shirt:"#7c6a8f", shade:"#5f4f72", collar:"#efe3cc", props:"papers", stage:"spec"},
   chan:   {name:"Chan",   role:"Builder / code",     cx:280, hy:124,hair:"spiky", phones:true, skin:"#e8b98f", hc:"#1b1b1b", shirt:"#e07b39", shade:"#b95f25", collar:"#f3e2c8", acc:"#3a3f44", acc2:"#23272b", props:"dual", stage:"spec"},
+  kai:    {name:"Kai",    role:"Full-stack & platform", cx:40,  hy:124,hair:"short", skin:"#d9a47a", hc:"#1f2430", shirt:"#3d7ea6", shade:"#2c5f7d", collar:"#e8f0f5", props:"dual", stage:"spec"},
+  nova:   {name:"Nova",   role:"Product & distribution", cx:40,  hy:166,hair:"long",  skin:"#f0c8a2", hc:"#5a2f6b", shirt:"#8b5cf6", shade:"#6d3fc4", collar:"#f3e8ff", props:"phone", stage:"spec"},
   villain:{name:"Villain",role:"Adversarial critic", cx:120, hy:166,hair:"slick", brows:true, goatee:true, skin:"#d6b294", hc:"#141113", shirt:"#3a3236", shade:"#262124", collar:"#b2402f", props:"redpen", stage:"villain"},
   hero:   {name:"Hero",   role:"Debugger / fixer",   cx:200, hy:166,hair:"short", band:true, skin:"#c48a5f", hc:"#9a5a28", shirt:"#3f5fa0", shade:"#2e4780", collar:"#e2b93b", acc:"#c0453a", acc2:"#94302a", props:"tools", stage:"hero"},
   dwight: {name:"Dwight", role:"Quality gate",       cx:280, hy:166,hair:"part",  glasses:"#2b211a", skin:"#f0c8a2", hc:"#5a3f28", shirt:"#c9a23a", shade:"#a5831f", collar:"#6b4a2b", props:"stamp", stage:"dwight"},
 };
-const ORDER = ["god","shiva","alberto","mike","stacy","juan","chan","villain","hero","dwight"];
+const ORDER = ["god","shiva","alberto","mike","stacy","juan","kai","chan","nova","villain","hero","dwight"];
 const ROOMS = [
   {id:"core",    short:"Core room",    name:"Dibya’s Intelligence Office", x:82,  y:12, w:78, h:54, members:["dwight","shiva","chan","alberto","villain"]},
   {id:"content", short:"Content room", name:"DIO — Content",               x:162, y:12, w:76, h:54, members:["stacy","mike","dwight","juan","villain"]},

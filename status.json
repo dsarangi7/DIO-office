@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-12T17:24:42+08:00",
+  "updatedAt": "2026-10-13T15:07:39+08:00",
   "agents": [
     {
       "id": "god",
@@ -50,11 +50,27 @@
       "room": "desk"
     },
     {
+      "id": "kai",
+      "name": "Kai",
+      "role": "Full-stack & platform",
+      "status": "working",
+      "task": "Echo ZH · pinyin-primary (bc-b8d01a6a)",
+      "room": "desk"
+    },
+    {
       "id": "chan",
       "name": "Chan",
       "role": "Builder / code",
       "status": "working",
-      "task": "Echo flash-card visual",
+      "task": "Echo UI · Safari-note off + streak ≥2",
+      "room": "desk"
+    },
+    {
+      "id": "nova",
+      "name": "Nova",
+      "role": "Product & distribution",
+      "status": "idle",
+      "task": "Echo iOS · PWA home-screen (no App Store build)",
       "room": "desk"
     },
     {
@@ -69,8 +85,8 @@
       "id": "hero",
       "name": "Hero",
       "role": "Debugger / fixer",
-      "status": "working",
-      "task": "Echo flash-card QA",
+      "status": "idle",
+      "task": "Idle · café",
       "room": "desk"
     },
     {
@@ -85,32 +101,27 @@
   "handoffs": [],
   "feed": [
     {
-      "at": "2026-10-12T17:24:42+08:00",
-      "agent": null,
-      "text": "Kai: Echo flash-card swipe UI (interaction) (working)"
+      "at": "2026-10-13T15:07:39+08:00",
+      "agent": "kai",
+      "text": "Kai · Echo ZH pinyin-primary in flight (bc-b8d01a6a)"
     },
     {
-      "at": "2026-10-12T17:24:42+08:00",
+      "at": "2026-10-13T15:07:39+08:00",
       "agent": "chan",
-      "text": "Chan · In flight"
+      "text": "Chan · Safari/Chrome note removal + streak gate (≥2 sentences) in flight"
     },
     {
-      "at": "2026-10-12T17:24:42+08:00",
-      "agent": "hero",
-      "text": "Hero · In flight"
+      "at": "2026-10-13T15:07:39+08:00",
+      "agent": "nova",
+      "text": "Nova · Echo iOS = PWA Add-to-Home-Screen (no native App Store build) · ready"
     },
     {
-      "at": "2026-10-12T17:24:42+08:00",
-      "agent": null,
-      "text": "Nova: WeCom APK install kit — ready (idle)"
-    },
-    {
-      "at": "2026-10-12T17:24:42+08:00",
+      "at": "2026-10-13T15:07:39+08:00",
       "agent": "juan",
       "text": "Juan · Waiting · Waiting Dibya send of sample ask"
     },
     {
-      "at": "2026-10-12T17:24:42+08:00",
+      "at": "2026-10-13T15:07:39+08:00",
       "agent": "god",
       "text": "God · Active"
     }

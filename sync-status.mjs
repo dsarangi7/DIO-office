@@ -16,9 +16,9 @@ const INDEX = path.join(__dirname, "index.html");
 
 const KNOWN = {
   god: { name: "God", role: "Orchestrator", defaultRoom: "god-office" },
-  kai: { name: "Kai", role: "STT / mobile", defaultRoom: "desk" },
+  kai: { name: "Kai", role: "Full-stack & platform", defaultRoom: "desk" },
   chan: { name: "Chan", role: "Builder / code", defaultRoom: "desk" },
-  nova: { name: "Nova", role: "WeCom / install", defaultRoom: "desk" },
+  nova: { name: "Nova", role: "Product & distribution", defaultRoom: "desk" },
   juan: { name: "Juan", role: "Docs & knowledge", defaultRoom: "desk" },
   dwight: { name: "Dwight", role: "Quality gate", defaultRoom: "desk" },
   shiva: { name: "Shiva", role: "Research lead", defaultRoom: "desk" },
@@ -31,7 +31,7 @@ const KNOWN = {
 
 /** Canvas ORDER — agents drawn as sprites. Others go to feed only. */
 const CANVAS_IDS = new Set([
-  "god", "shiva", "alberto", "mike", "stacy", "juan", "chan", "villain", "hero", "dwight",
+  "god", "shiva", "alberto", "mike", "stacy", "juan", "kai", "chan", "nova", "villain", "hero", "dwight",
 ]);
 
 function shanghaiISO(d = new Date()) {
