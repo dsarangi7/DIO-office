@@ -27,6 +27,10 @@
     from|to|at key hasn't been seen yet animates as a document flying desk → desk.
   - The most recent handoff animates once on load.
   - Unknown ids are ignored; unknown statuses fall back to "idle".
+  - Idle agents walk to the bottom-right café. At most 3 may be off-desk
+    (desk→café walk, seated, or holding a café seat). A further idle agent
+    stays at their desk and shows “Café full (3/3)”. Agents still at their
+    desk are not counted toward that cap.
   - URL params: ?demo=1  ?step=N (demo step)  ?theme=dark  ?select=<id>
 
   Fonts embedded (base64, subset): Silkscreen + Pixelify Sans, both SIL Open Font License 1.1.
@@ -113,8 +117,16 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 304px;min-height:0}
 .bubble::before{content:"";display:inline-block;width:6px;height:6px;margin-right:4px;vertical-align:1px;background:var(--working)}
 .bubble.s-reviewing::before{background:var(--reviewing)} .bubble.s-blocked{border-color:#b84e38;background:#fbe9e2} .bubble.s-blocked::before{background:#b84e38}
 .bubble.s-idle{color:#7a6a56;background:#f3ecdd;border-style:dashed} .bubble.s-idle::before{background:#a69680}
+.bubble.reject{color:#3a2e24;background:#ffe7c2;border:2px solid #c0643a;font-weight:700}
+.bubble.reject::before{background:#c0643a}
 .tail{position:absolute;width:6px;height:6px;background:#fffaf0;border-right:2px solid #3a2e24;border-bottom:2px solid #3a2e24;transform:translate(-50%,-4px) rotate(45deg);pointer-events:none}
 .tail.s-blocked{background:#fbe9e2;border-color:#b84e38} .tail.s-idle{background:#f3ecdd}
+.tail.reject{background:#ffe7c2;border-color:#c0643a}
+.cafe-flag{position:absolute;pointer-events:none;z-index:2;font:400 8px/1 "Silk";-webkit-font-smoothing:none;letter-spacing:.04em;text-transform:uppercase;color:#3a2e24;background:rgba(255,250,240,.92);border:1px solid rgba(58,46,36,.55);padding:2px 4px}
+[data-theme=dark] .cafe-flag{background:rgba(40,34,28,.92);color:#efe3cc;border-color:rgba(239,227,204,.35)}
+[data-theme=dark] .bubble.reject{color:#1a120c;background:#e8b04e;border-color:#e8b04e}
+[data-theme=dark] .bubble.reject::before{background:#1a120c}
+[data-theme=dark] .tail.reject{background:#e8b04e;border-color:#e8b04e}
 .room{position:absolute;pointer-events:none;font-size:11px;line-height:12px;color:#3a2e24}
 .room b{font:400 8px/1 "Silk";-webkit-font-smoothing:none;text-transform:uppercase;display:inline-block;padding:2px 4px;background:rgba(255,250,240,.85);border:1px solid rgba(58,46,36,.5)}
 .room{display:flex;align-items:center;gap:3px;white-space:nowrap}
@@ -167,7 +179,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 304px;min-height:0}
 <body>
 <header class="top">
   <div class="brand"><canvas id="logo" width="16" height="16"></canvas>
-    <div><h1>Dibya’s Intelligence Office</h1><span class="sub">DIO · live floor · café + desks</span></div></div>
+    <div><h1>Dibya’s Intelligence Office</h1><span class="sub">DIO · live floor · corner café · 3 seats</span></div></div>
   <div class="pipe" id="pipe" title="Default pipeline"></div>
   <div class="right">
     <span class="src" id="src">embedded</span>
@@ -192,7 +204,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 304px;min-height:0}
 
 <script type="application/json" id="dio-status">
 {
-  "updatedAt": "2026-10-13T15:07:39+08:00",
+  "updatedAt": "2026-10-15T15:32:34+08:00",
   "agents": [
     {
       "id": "god",
@@ -470,57 +482,78 @@ function normalize(data){
 const hKey = h => h.from+"|"+h.to+"|"+h.at+"|"+h.note;
 
 /* =================== café idle motion =================== */
+const CAFE_CAP = 3; // people off-desk, not furniture
+// Bottom-right chill zone on the 320×208 floor. Only the first CAFE_CAP seats are assigned.
 const CAFE_SPOTS = [
-  {x:10, y:90, kind:"drink", pair:1},   // coffee machine
-  {x:20, y:90, kind:"drink", pair:0},   // mug queue
-  {x:15, y:108, kind:"sit", pair:3},    // round table L
-  {x:45, y:108, kind:"sit", pair:2},    // round table R
-  {x:14, y:144, kind:"sofa", pair:5},   // sofa L
-  {x:30, y:144, kind:"sofa", pair:4},   // sofa R
-  {x:48, y:90, kind:"stand", pair:-1},  // water cooler
-  {x:58, y:118, kind:"stand", pair:-1}, // near plant
-  {x:12, y:176, kind:"sit", pair:9},    // bistro L
-  {x:30, y:176, kind:"sit", pair:8},    // bistro R
+  {x:222, y:158, kind:"sit", pair:1},   // round table, left stool
+  {x:254, y:158, kind:"sit", pair:0},   // round table, right stool
+  {x:296, y:196, kind:"sofa", pair:-1}, // corner sofa
 ];
-const cafeAssign = {}; // id -> spot index
+const cafeAssign = {}; // id -> spot index, only after they leave the desk
 const cafeAnim = {};   // id -> {fromX,fromY,toX,toY,t0,dur,phase,facing}
+const cafeReject = {}; // id -> toast; idle agents refused a seat, still at the desk
 function deskAnchor(id){ const d=DEFS[id]; return {x:d.cx, y:d.hy}; }
+function cafeSeatCount(){ return ORDER.reduce((n,id)=>n+(cafeAssign[id]!=null?1:0),0); }
+function isCafeRejected(id){
+  const a=view.agents[id];
+  return !!(a && a.status==="idle" && cafeReject[id] && cafeAssign[id]==null);
+}
+function startCafeWalk(id, pick){
+  const spot=CAFE_SPOTS[pick], desk=deskAnchor(id);
+  const prev=cafeAnim[id];
+  const leftDesk = prev && prev.phase!=="desk" && prev.phase!=="rejected";
+  const fromX = leftDesk ? (prev.x||desk.x) : desk.x;
+  const fromY = leftDesk ? (prev.y||desk.y) : desk.y;
+  cafeAnim[id]={fromX,fromY,toX:spot.x,toY:spot.y,x:fromX,y:fromY,t0:performance.now(),dur:1800+Math.random()*900,phase:"walk",facing:spot.x>=fromX?1:-1,spot:pick};
+}
+function rejectCafe(id){
+  const n=cafeSeatCount();
+  cafeReject[id] = n>=CAFE_CAP ? "Café full ("+CAFE_CAP+"/"+CAFE_CAP+")" : "No seats — wait";
+  const desk=deskAnchor(id);
+  const an=cafeAnim[id];
+  if(an && (an.phase==="walk" || an.phase==="cafe") && cafeAssign[id]==null){
+    cafeAnim[id]={fromX:an.x||desk.x,fromY:an.y||desk.y,toX:desk.x,toY:desk.y,x:an.x||desk.x,y:an.y||desk.y,t0:performance.now(),dur:1400,phase:"return",facing:desk.x>=(an.x||desk.x)?1:-1,spot:null};
+    return;
+  }
+  if(!an || an.phase==="desk" || an.phase==="rejected"){
+    cafeAnim[id]={phase:"rejected",x:desk.x,y:desk.y,spot:null};
+  }
+}
 function reassignCafe(){
   const idle = ORDER.filter(id=>view.agents[id] && view.agents[id].status==="idle");
-  const used = new Set(Object.entries(cafeAssign).filter(([id])=>idle.includes(id)).map(([,i])=>i));
-  idle.forEach(id=>{
-    if(cafeAssign[id]!=null && cafeAssign[id]<CAFE_SPOTS.length) return;
-    let pick = -1;
-    // prefer pair spots if partner already seated
-    for(let i=0;i<CAFE_SPOTS.length;i++){
-      if(used.has(i)) continue;
-      const p=CAFE_SPOTS[i].pair;
-      if(p>=0 && used.has(p)){ pick=i; break; }
-    }
-    if(pick<0){
-      // stable hash preference
-      const prefer = (id.charCodeAt(0)+id.length*7) % CAFE_SPOTS.length;
-      for(let k=0;k<CAFE_SPOTS.length;k++){
-        const i=(prefer+k)%CAFE_SPOTS.length;
-        if(!used.has(i)){ pick=i; break; }
-      }
-    }
-    if(pick<0) pick = idle.indexOf(id) % CAFE_SPOTS.length;
-    cafeAssign[id]=pick; used.add(pick);
-    const spot=CAFE_SPOTS[pick], desk=deskAnchor(id);
-    const prev=cafeAnim[id];
-    const fromX = prev && prev.phase!=="desk" ? (prev.x||desk.x) : desk.x;
-    const fromY = prev && prev.phase!=="desk" ? (prev.y||desk.y) : desk.y;
-    cafeAnim[id]={fromX,fromY,toX:spot.x,toY:spot.y,x:fromX,y:fromY,t0:performance.now(),dur:1800+Math.random()*900,phase:"walk",facing:spot.x>=fromX?1:-1,spot:pick};
-  });
-  // clear assigns for non-idle; walk back to desk
+  const idleSet = new Set(idle);
+  // non-idle: leave the café and walk back. Desk AFK is not a seat.
   ORDER.forEach(id=>{
-    if(idle.includes(id)) return;
-    if(cafeAssign[id]==null && (!cafeAnim[id] || cafeAnim[id].phase==="desk")) { cafeAnim[id]={phase:"desk",x:DEFS[id].cx,y:DEFS[id].hy}; return; }
+    if(idleSet.has(id)) return;
+    delete cafeReject[id];
+    const an=cafeAnim[id];
+    const away = cafeAssign[id]!=null || (an && (an.phase==="walk" || an.phase==="cafe" || an.phase==="return"));
+    if(!away){
+      cafeAnim[id]={phase:"desk",x:DEFS[id].cx,y:DEFS[id].hy};
+      delete cafeAssign[id];
+      return;
+    }
+    if(an && an.phase==="return"){ delete cafeAssign[id]; return; }
     const desk=deskAnchor(id);
-    const cur=cafeAnim[id]||{x:desk.x,y:desk.y};
+    const cur=an||{x:desk.x,y:desk.y};
     cafeAnim[id]={fromX:cur.x||desk.x,fromY:cur.y||desk.y,toX:desk.x,toY:desk.y,x:cur.x||desk.x,y:cur.y||desk.y,t0:performance.now(),dur:1400,phase:"return",facing:desk.x>=(cur.x||desk.x)?1:-1,spot:null};
     delete cafeAssign[id];
+  });
+  idle.forEach(id=>{
+    if(cafeAssign[id]!=null && (cafeAssign[id]<0 || cafeAssign[id]>=CAFE_CAP || cafeAssign[id]>=CAFE_SPOTS.length)) delete cafeAssign[id];
+  });
+  const used = new Set();
+  idle.forEach(id=>{ if(cafeAssign[id]!=null) used.add(cafeAssign[id]); });
+  // Fill in floor order. Already-seated idle agents keep their seat.
+  idle.forEach(id=>{
+    if(cafeAssign[id]!=null){ delete cafeReject[id]; return; }
+    if(used.size>=CAFE_CAP){ rejectCafe(id); return; }
+    let pick=-1;
+    for(let i=0;i<CAFE_CAP && i<CAFE_SPOTS.length;i++){ if(!used.has(i)){ pick=i; break; } }
+    if(pick<0){ rejectCafe(id); return; }
+    delete cafeReject[id];
+    cafeAssign[id]=pick; used.add(pick);
+    startCafeWalk(id, pick);
   });
 }
 function agentPos(id, now){
@@ -533,27 +566,38 @@ function agentPos(id, now){
       an.x=an.fromX+(an.toX-an.fromX)*e;
       an.y=an.fromY+(an.toY-an.fromY)*e;
       if(p>=1){ an.phase="desk"; an.x=d.cx; an.y=d.hy; }
-      return {x:an.x, y:an.y, atCafe:false, walking:p<1, facing:an.facing||1, spot:null};
+      return {x:an.x, y:an.y, atCafe:false, walking:p<1, facing:an.facing||1, spot:null, rejected:false};
     }
-    return {x:d.cx, y:d.hy, atCafe:false, walking:false, facing:1, spot:null};
+    return {x:d.cx, y:d.hy, atCafe:false, walking:false, facing:1, spot:null, rejected:false};
   }
   let an=cafeAnim[id];
-  if(!an || an.phase==="desk" || an.phase==="return"){
+  if(!an || an.phase==="desk" || an.phase==="return" || an.phase==="rejected"){
     reassignCafe();
     an=cafeAnim[id];
   }
-  if(!an) return {x:d.cx, y:d.hy, atCafe:false, walking:false, facing:1, spot:null};
+  if(isCafeRejected(id)){
+    if(an && an.phase==="return"){
+      const p=Math.min(1, Math.max(0,(now-an.t0)/an.dur));
+      const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      an.x=an.fromX+(an.toX-an.fromX)*e;
+      an.y=an.fromY+(an.toY-an.fromY)*e;
+      if(p>=1){ an.phase="rejected"; an.x=d.cx; an.y=d.hy; }
+      return {x:an.x, y:an.y, atCafe:false, walking:p<1, facing:an.facing||1, spot:null, rejected:true};
+    }
+    return {x:d.cx, y:d.hy, atCafe:false, walking:false, facing:1, spot:null, rejected:true};
+  }
+  if(!an) return {x:d.cx, y:d.hy, atCafe:false, walking:false, facing:1, spot:null, rejected:false};
   if(an.phase==="walk"){
     const p=Math.min(1, Math.max(0,(now-an.t0)/an.dur));
     const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
     an.x=an.fromX+(an.toX-an.fromX)*e;
     an.y=an.fromY+(an.toY-an.fromY)*e;
     if(p>=1){ an.phase="cafe"; an.x=an.toX; an.y=an.toY; an.t0=now; }
-    return {x:an.x, y:an.y, atCafe:p>=1, walking:p<1, facing:an.facing||1, spot:an.spot};
+    return {x:an.x, y:an.y, atCafe:p>=1, walking:p<1, facing:an.facing||1, spot:an.spot, rejected:false};
   }
   // cafe idle behaviors cycle
   an.x=an.toX; an.y=an.toY;
-  return {x:an.x, y:an.y, atCafe:true, walking:false, facing:an.facing||1, spot:an.spot};
+  return {x:an.x, y:an.y, atCafe:true, walking:false, facing:an.facing||1, spot:an.spot, rejected:false};
 }
 function shortTask(t,n){ t=String(t||""); n=n||48; if(t.length<=n) return t; return t.slice(0,n-1)+"…"; }
 
@@ -597,6 +641,30 @@ function planks(g,x,y,w,h,a,b,line){
     const off=((j/4)*13)%24; for(let i=off;i<w;i+=24) R(g,x+i,y+j,1,3,line); }
 }
 
+function drawCafe(g){
+  // Wood nook in the bottom-right corner. Desk sprites stay in the foreground.
+  planks(g,216,150,104,58,P.wood,P.wood2,P.woodLine);
+  R(g,216,150,104,1,P.trim); R(g,216,150,1,58,P.trim);
+  // coffee bar along the right edge, above the sofa
+  R(g,301,154,17,32,P.desk); R(g,301,154,17,30,P.deskTop); R(g,301,154,17,1,shadeHex(P.deskTop,.2));
+  R(g,303,156,8,9,"#3d3833"); R(g,304,157,6,3,"#5a534c"); R(g,306,162,2,2,P.coffee);
+  R(g,313,158,3,3,P.mug); R(g,313,164,3,3,"#c0643a"); R(g,305,168,4,5,"#e9e2d3");
+  // round table + stools in the aisle
+  R(g,230,162,20,2,P.shadow);
+  R(g,228,153,22,10,P.tableTop); R(g,229,152,20,1,shadeHex(P.tableTop,.2)); R(g,228,161,22,2,P.table);
+  R(g,232,155,4,3,P.mug); R(g,240,156,5,4,P.paper);
+  [[218,155],[250,155]].forEach(([x,y])=>{ R(g,x,y,6,6,P.chair); R(g,x,y,6,1,P.chairHi); });
+  // bistro lower in the aisle, between the bottom-row desks
+  R(g,222,176,28,8,P.table); R(g,222,176,28,6,P.tableTop); R(g,222,176,28,1,shadeHex(P.tableTop,.18));
+  R(g,226,178,3,3,P.mug); R(g,236,178,4,3,P.paper);
+  [[216,180],[250,180]].forEach(([x,y])=>{ R(g,x,y,5,5,P.chair); R(g,x,y,5,1,P.chairHi); });
+  // sofa in the corner, below Dwight's desk
+  R(g,270,202,44,3,P.shadow);
+  R(g,268,190,48,14,P.sofa); R(g,268,190,48,3,P.sofaHi); R(g,268,190,4,14,P.sofaHi); R(g,312,190,4,14,P.sofaHi);
+  R(g,274,195,16,7,shadeHex(P.sofa,.12)); R(g,292,195,16,7,shadeHex(P.sofa,.12));
+  R(g,304,196,5,4,"#e2b84c");
+  plant(g,218,192,false);
+}
 function drawBackground(){
   const g = bg.getContext("2d"); g.clearRect(0,0,W,H);
   // floors
@@ -645,41 +713,19 @@ function drawBackground(){
     R(g,doorX,63,12,1,P.carpet2); R(g,doorX-1,63,1,3,P.iwall); R(g,doorX+12,63,1,3,P.iwall);
     for(let x=r.x+2;x<r.x+r.w;x+=10){ if(x>=doorX-1 && x<doorX+13) continue; R(g,x,64,2,1,P.glassHi); }
   });
-  // lounge
-  R(g,2,80,30,10,P.desk); R(g,2,80,30,8,P.deskTop); R(g,2,80,30,1,shadeHex(P.deskTop,.2)); // counter
-  R(g,5,78,8,9,"#3d3833"); R(g,6,79,6,3,"#5a534c"); R(g,8,84,2,2,P.coffee); // coffee machine
-  R(g,16,83,3,3,P.mug); R(g,21,83,3,3,"#c0643a"); R(g,26,82,4,5,"#e9e2d3"); // mugs + kettle-ish
-  R(g,40,79,8,12,"#d9e6e8"); R(g,41,80,6,5,"#9cc6d4"); R(g,41,86,6,4,"#e9eeee"); R(g,43,88,2,1,"#5e8fb0"); // water cooler
-  plant(g,64,82,true);
-  // round table + stools
-  R(g,22,112,20,2,P.shadow); R(g,20,103,22,10,P.tableTop); R(g,21,102,20,1,shadeHex(P.tableTop,.2)); R(g,20,111,22,2,P.table);
-  R(g,24,105,4,3,P.mug); R(g,33,106,5,4,P.paper);
-  [[12,105],[45,105]].forEach(([x,y])=>{ R(g,x,y,6,6,P.chair); R(g,x,y,6,1,P.chairHi); });
-  // sofa
-  R(g,6,150,36,4,P.shadow); R(g,4,136,38,14,P.sofa); R(g,4,136,38,4,P.sofaHi); R(g,4,136,4,14,P.sofaHi); R(g,38,136,4,14,P.sofaHi);
-  R(g,10,141,12,7,shadeHex(P.sofa,.12)); R(g,24,141,12,7,shadeHex(P.sofa,.12));
-  R(g,30,142,5,4,"#e2b84c"); // cushion
-  // rug in front of sofa
-  R(g,8,156,32,14,shadeHex(P.wood,-.12)); R(g,10,158,28,10,P.carpet2);
-
-  // café lounge label + second bistro table
-  R(g,4,172,28,8,P.table); R(g,4,172,28,6,P.tableTop); R(g,4,172,28,1,shadeHex(P.tableTop,.18));
-  R(g,8,174,3,3,P.mug); R(g,18,174,4,3,P.paper);
-  [[2,176],[28,176]].forEach(([x,y])=>{ R(g,x,y,5,5,P.chair); R(g,x,y,5,1,P.chairHi); });
-  // café floor mat stripe
-  R(g,2,98,54,1,shadeHex(P.wood,-.08));
-  // printer + bookshelf
+  // printer + bookshelf (left wood; café moved to the bottom-right)
   R(g,54,128,20,12,"#d8d3c8"); R(g,54,128,20,3,"#efebe2"); R(g,57,131,14,2,"#3d3833"); R(g,60,126,8,2,P.paper); R(g,55,140,18,2,P.shadow);
   bookshelf(g,52,176,26,22);
   plant(g,4,190,true);
   // entrance mat + door
   R(g,24,204,22,4,P.iwall); R(g,26,202,18,6,"#8a5a3f"); R(g,28,203,14,4,"#a36c4c");
   // open floor plants
-  plant(g,86,70,false); plant(g,308,70,false); plant(g,156,148,false); plant(g,236,148,false); plant(g,308,196,true); plant(g,86,196,true);
-  // pipeline floor tape on row 3 (Villain → Hero → Dwight)
+  plant(g,86,70,false); plant(g,308,70,false); plant(g,156,148,false); plant(g,86,196,true);
+  // pipeline floor tape stops at the café trim (Villain → Hero)
   for(let x=140;x<180;x+=6) R(g,x,197,3,1,"#c9952f");
-  for(let x=220;x<260;x+=6) R(g,x,197,3,1,"#c9952f");
-  R(g,180,196,1,3,"#c9952f"); R(g,260,196,1,3,"#c9952f");
+  for(let x=186;x<210;x+=6) R(g,x,197,3,1,"#c9952f");
+  R(g,180,196,1,3,"#c9952f");
+  drawCafe(g);
   // chairs behind every desk
   ORDER.forEach(id=>{ const d=DEFS[id]; chairTop(g,d.cx-6,d.hy+6); });
 }
@@ -733,6 +779,12 @@ function buildOverlay(){
     bub.addEventListener("click",()=>select(id)); tag.addEventListener("click",()=>select(id));
     els[id]={bub,tail,tag};
   });
+  const flag=document.createElement("div");
+  flag.className="cafe-flag silk";
+  flag.textContent="Café";
+  flag.title="Bottom-right chill zone · 3 seats";
+  overlay.appendChild(flag);
+  els.cafeFlag=flag;
 }
 function fit(){
   const wrap=$("#floorWrap"); const aw=wrap.clientWidth-16, ah=wrap.clientHeight-16;
@@ -747,16 +799,29 @@ function layoutOverlay(){
   const s=scale;
   const now=performance.now();
   ROOMS.forEach(r=>{ const el=els["room_"+r.id]; el.style.left=((r.x+3)*s)+"px"; el.style.top=((r.y+13)*s)+"px"; });
+  if(els.cafeFlag){
+    // Sit on the aisle trim, above the seats, so the label doesn't cover the corner sofa.
+    els.cafeFlag.style.left=(222*s)+"px";
+    els.cafeFlag.style.top=(141*s)+"px";
+  }
   ORDER.forEach(id=>{
-    const d=DEFS[id], e=els[id];
+    const e=els[id];
     const pos=agentPos(id, now);
     const ax=pos.x, ay=pos.y;
-    e.tag.style.left=(ax*s)+"px"; e.tag.style.top=((ay+(id==="god"&&!pos.atCafe?24:23))*s)+"px";
+    const tagW=e.tag.offsetWidth||48, tagH=e.tag.offsetHeight||16;
+    let tagLeft=ax*s;
+    const minL=tagW/2+2, maxL=W*s-tagW/2-2;
+    if(maxL>minL) tagLeft=Math.max(minL,Math.min(maxL,tagLeft));
+    e.tag.style.left=tagLeft+"px";
+    // Keep name tags off the bottom edge so they don't cover the café corner or fall into the roster.
+    let tagTop=(ay+(id==="god"&&!pos.atCafe?24:23))*s;
+    if(tagTop+tagH>(H-16)*s) tagTop=Math.max(2,(ay-18)*s);
+    e.tag.style.top=tagTop+"px";
     const show = e.bub.style.display!=="none";
     if(show){
       const bw=e.bub.offsetWidth; let left=ax*s;
-      const minL = bw/2+4, maxL = W*s-bw/2-4;
-      left=Math.max(minL,Math.min(maxL,left));
+      const bMin=bw/2+4, bMax=W*s-bw/2-4;
+      left=Math.max(bMin,Math.min(bMax,left));
       const by=(ay-1)*s-3;
       e.bub.style.left=left+"px"; e.bub.style.top=by+"px";
       e.tail.style.left=(ax*s)+"px"; e.tail.style.top=by+"px";
@@ -777,12 +842,19 @@ function renderAgents(){
     const a=view.agents[id], e=els[id];
     e.tag.className="tag s-"+a.status+(selected===id?" sel":"");
     e.tag.querySelector("span").textContent=a.name;
-    const show = a.status!=="idle" || selected===id;
+    const rejected = isCafeRejected(id);
+    const show = a.status!=="idle" || selected===id || rejected;
     e.bub.style.display = show?"":"none"; e.tail.style.display = show?"":"none";
-    e.bub.className="bubble s-"+a.status; e.tail.className="tail s-"+a.status;
-    const raw = a.task || (a.status==="idle"?"Idle":"…");
-    e.bub.textContent = a.status==="idle" ? raw : shortTask(raw, 48);
-    e.bub.title = a.task;
+    if(rejected){
+      e.bub.className="bubble reject"; e.tail.className="tail reject";
+      e.bub.textContent = cafeReject[id];
+      e.bub.title = cafeReject[id];
+    } else {
+      e.bub.className="bubble s-"+a.status; e.tail.className="tail s-"+a.status;
+      const raw = a.task || (a.status==="idle"?"Idle":"…");
+      e.bub.textContent = a.status==="idle" ? raw : shortTask(raw, 48);
+      e.bub.title = a.task;
+    }
   });
   ROOMS.forEach(r=>{
     const here = ORDER.filter(id=>view.agents[id].room===r.id && view.agents[id].status!=="idle");
@@ -833,13 +905,15 @@ let lastFeedTop="";
 function renderPanel(){
   const id = selected || "god";
   const a=view.agents[id], d=DEFS[id];
-  const roomName = a.room==="desk"?"At desk": a.room==="god-office"?"Corner office": (ROOMS.find(r=>r.id===a.room)||{name:a.room}).name;
+  const rejected = isCafeRejected(id);
+  const roomName = rejected?"At desk · café full": a.room==="desk"?"At desk": a.room==="god-office"?"Corner office": (ROOMS.find(r=>r.id===a.room)||{name:a.room}).name;
   const recent = mergedFeed(id).slice(0,6);
+  const nowLine = rejected ? (cafeReject[id]+(a.task?" · "+a.task:"")) : (a.task||"—");
   $("#who").innerHTML = `
     <div class="id"><canvas id="bigAv" width="12" height="14"></canvas>
       <div><h2>${esc(a.name)}</h2><div class="role">${esc(a.role)}</div>
       <span class="pill"><span class="dot s-${a.status}"></span>${a.status}</span> <span class="pill room">${esc(roomName)}</span></div></div>
-    <div class="now"><em>${a.status==="idle"?"Last / next":"Current task"}</em>${esc(a.task||"—")}</div>
+    <div class="now"><em>${rejected?"Café":a.status==="idle"?"Last / next":"Current task"}</em>${esc(nowLine)}</div>
     <ul class="mini">${recent.length?recent.map(it=>`<li><time>${tOf(it.at)}</time><span>${it.kind==="h"?`<span class="ho">${esc(view.agents[it.from].name)} → ${esc(view.agents[it.to].name)}</span> ${esc(it.text)}`:esc(it.text)}</span></li>`).join(""):`<li><span>No recent activity</span></li>`}</ul>`;
   drawAvatar($("#bigAv"),id);
   $(".ph span").textContent = selected?"At the desk":"At the desk · God (default)";
@@ -1170,7 +1244,7 @@ poll(true).then(ok=>{
   else { const last=view.handoffs[view.handoffs.length-1]; if(last) setTimeout(()=>launch(last,0),600); }
   if(ok) setInterval(()=>poll(false),45000);
 });
-window.DIO = {get view(){return view;}, flights, select, setDemo, setTheme, demo};
+window.DIO = {get view(){return view;}, flights, select, setDemo, setTheme, demo, CAFE_CAP, CAFE_SPOTS, get cafeAssign(){return cafeAssign;}, get cafeReject(){return cafeReject;}, isCafeRejected};
 })();
 </script>
 </body>
